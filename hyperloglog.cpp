@@ -13,15 +13,11 @@
 #include <unordered_set>
 #include <vector>
 
-
-
 class RandomStreamGen {
 public:
-
   RandomStreamGen(std::uint64_t seed = std::random_device{}())
       : rng_(seed), len_dist_(1, 30),
         char_dist_(0, static_cast<int>(alphabet().size()) - 1) {}
-
 
   std::vector<std::string> generate(std::size_t n) {
     std::vector<std::string> res;
@@ -55,15 +51,10 @@ private:
   std::uniform_int_distribution<int> char_dist_;
 };
 
-
-
 class HashFuncGen {
 public:
-
-
   explicit HashFuncGen(const std::string &salt = "default_salt")
       : salt_(salt) {}
-
 
   std::uint32_t operator()(const std::string &s) const {
     static std::hash<std::string> hasher;
@@ -78,8 +69,6 @@ private:
   std::string salt_;
 };
 
-
-
 class HyperLogLog {
 public:
   explicit HyperLogLog(unsigned B_bits, const HashFuncGen &h)
@@ -88,10 +77,7 @@ public:
   void add(const std::string &value) {
     std::uint32_t x = hash_(value);
 
-
     std::uint32_t idx = x >> (32u - B_);
-
-
 
     std::uint32_t w = x << B_;
 
@@ -120,8 +106,6 @@ public:
     double Z = 1.0 / sum;
     double raw_estimate = alpha_m * m_ * m_ * Z;
 
-
-
     std::size_t V = std::count(registers_.begin(), registers_.end(),
                                static_cast<std::uint8_t>(0));
     if (V != 0) {
@@ -132,8 +116,6 @@ public:
       }
     }
 
-
-
     return raw_estimate;
   }
 
@@ -142,11 +124,6 @@ public:
 
 private:
   static double alpha_for_m(std::size_t m) {
-
-
-
-
-
 
     if (m == 16)
       return 0.673;
@@ -163,8 +140,6 @@ private:
   const HashFuncGen &hash_;
 };
 
-
-
 struct StepResult {
   std::size_t stream_id;
   std::size_t step_index;
@@ -175,14 +150,13 @@ struct StepResult {
 
 int main() {
 
-
   const unsigned B_bits = 10;
   const std::size_t m = 1u << B_bits;
 
-  std::cout << "HyperLogLog experiment\n";
+  std::cout << "Эксперимент HyperLogLog\n";
   std::cout << "B = " << B_bits << ", m = " << m << "\n";
-  std::cout << "Theoretical relative std.dev is about 1.04/sqrt(m).\n";
-  std::cout << "Your assignment also asks to check sqrt(1.04/2^B) and "
+  std::cout << "Теоретическое относительное σ примерно равно 1.04/sqrt(m).\n";
+  std::cout << "В задании также нужно проверить sqrt(1.04/2^B) и "
                "sqrt(1.3/2^B).\n\n";
 
   const std::size_t num_streams = 5;
@@ -190,17 +164,15 @@ int main() {
   const std::size_t step_percent = 5;
 
   if (step_percent == 0 || step_percent > 100 || (100 % step_percent) != 0) {
-    std::cerr << "step_percent must divide 100\n";
+    std::cerr << "step_percent должен делить 100\n";
     return 1;
   }
 
   const std::size_t num_steps = 100 / step_percent;
   const std::size_t step_size = stream_length / num_steps;
 
-
   std::uint64_t base_seed = static_cast<std::uint64_t>(
       std::chrono::high_resolution_clock::now().time_since_epoch().count());
-
 
   std::ofstream csv_all("hll_results_all_streams.csv");
   csv_all << "stream_id,step_index,items_processed,true_F0,hll_estimate\n";
@@ -212,14 +184,12 @@ int main() {
     HashFuncGen hash("hll_salt_" + std::to_string(seed + 2));
     HyperLogLog hll(B_bits, hash);
 
-
     std::vector<std::string> stream = stream_gen.generate(stream_length);
 
     std::unordered_set<std::string> distinct;
     distinct.reserve(stream_length * 2);
 
     std::size_t items_processed = 0;
-
 
     std::string filename = "hll_stream_" + std::to_string(s) + ".csv";
     std::ofstream csv_stream(filename);
@@ -251,10 +221,8 @@ int main() {
 
   csv_all.close();
 
-  std::cout << "Done. Generated per-stream CSV files hll_stream_*.csv\n";
-  std::cout << "and aggregated file hll_results_all_streams.csv.\n";
-  std::cout << "Use any plotting tool (e.g. Python/matplotlib, R, Excel)\n";
-  std::cout << "to build Graph #1 and Graph #2 from these files.\n";
+  std::cout << "Готово. Сгенерированы CSV по потокам: hll_stream_*.csv\n";
+  std::cout << "и агрегированный файл hll_results_all_streams.csv.\n";
 
   return 0;
 }

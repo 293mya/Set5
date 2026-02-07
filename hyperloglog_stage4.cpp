@@ -1,6 +1,4 @@
-// Stage 4: HyperLogLog improved (memory-optimized registers packed into 6 bits)
-// Baseline (uint8_t registers) is kept for a fair side-by-side comparison.
-// Compile: g++ -std=c++17 -O2 hyperloglog_stage4.cpp -o hll4
+
 
 #include <algorithm>
 #include <array>
@@ -14,8 +12,6 @@
 #include <string>
 #include <unordered_set>
 #include <vector>
-
-// ---------------- RandomStreamGen ----------------
 
 class RandomStreamGen {
 public:
@@ -54,8 +50,6 @@ private:
   std::uniform_int_distribution<int> char_dist_;
 };
 
-// ---------------- HashFuncGen (std::hash + salt) ----------------
-
 class HashFuncGen {
 public:
   explicit HashFuncGen(const std::string &salt = "default_salt")
@@ -72,8 +66,6 @@ public:
 private:
   std::string salt_;
 };
-
-// ---------------- HyperLogLog baseline (uint8_t registers) ----------------
 
 class HyperLogLogBase {
 public:
@@ -106,7 +98,6 @@ public:
     double Z = 1.0 / sum;
     double raw = alpha_m * m_ * m_ * Z;
 
-    // Linear counting (same as in baseline file)
     std::size_t V = std::count(registers_.begin(), registers_.end(),
                                static_cast<std::uint8_t>(0));
     if (V != 0) {
@@ -138,10 +129,6 @@ private:
   const HashFuncGen &hash_;
 };
 
-// ---------------- Packed 6-bit registers ----------------
-// Store m registers, each in [0..63] (6 bits). For our HLL with 32-bit hash,
-// maximum rho is (32 - B + 1), so 6 bits is more than enough for typical B>=4.
-
 class PackedRegisters6 {
 public:
   explicit PackedRegisters6(std::size_t m)
@@ -158,7 +145,7 @@ public:
       std::uint64_t v = data_[word] >> off;
       return static_cast<std::uint8_t>(v & 0x3FULL);
     } else {
-      // crosses boundary
+
       const std::size_t low_bits = 64 - off;
       std::uint64_t low = data_[word] >> off;
       std::uint64_t high = data_[word + 1] & ((1ULL << (6 - low_bits)) - 1ULL);
@@ -168,7 +155,7 @@ public:
   }
 
   void set_max(std::size_t i, std::uint8_t value) {
-    value &= 0x3F; // keep 6 bits
+    value &= 0x3F;
     std::uint8_t cur = get(i);
     if (value <= cur)
       return;
@@ -190,7 +177,7 @@ private:
       data_[word] =
           (data_[word] & ~mask) | (static_cast<std::uint64_t>(value) << off);
     } else {
-      // crosses boundary
+
       const std::size_t low_bits = 64 - off;
       const std::size_t high_bits = 6 - low_bits;
 
@@ -211,8 +198,6 @@ private:
   const std::size_t bits_per_;
   std::vector<std::uint64_t> data_;
 };
-
-// ---------------- HyperLogLog improved (packed registers) ----------------
 
 class HyperLogLogPacked6 {
 public:
@@ -249,7 +234,6 @@ public:
     double Z = 1.0 / sum;
     double raw = alpha_m * m_ * m_ * Z;
 
-    // Same linear counting rule as baseline (for a fair comparison)
     if (V != 0) {
       double lc =
           m_ * std::log(static_cast<double>(m_) / static_cast<double>(V));
@@ -279,10 +263,8 @@ private:
   const HashFuncGen &hash_;
 };
 
-// ---------------- main experiment (baseline vs improved) ----------------
-
 int main() {
-  const unsigned B_bits = 10; // same B as baseline run
+  const unsigned B_bits = 10;
   const std::size_t m = 1u << B_bits;
 
   const std::size_t num_streams = 5;
@@ -290,7 +272,7 @@ int main() {
   const std::size_t step_percent = 5;
 
   if (step_percent == 0 || step_percent > 100 || (100 % step_percent) != 0) {
-    std::cerr << "step_percent must divide 100\n";
+    std::cerr << "step_percent должен делить 100\n";
     return 1;
   }
 
@@ -300,23 +282,20 @@ int main() {
   std::uint64_t base_seed = static_cast<std::uint64_t>(
       std::chrono::high_resolution_clock::now().time_since_epoch().count());
 
-  std::cout << "Stage 4: HyperLogLog baseline vs packed-6bit registers\n";
-  std::cout << "B = " << B_bits << ", m = " << m << "\n";
   std::cout
-      << "Theoretical relative std.dev scale ~ 1.04/sqrt(m) and 1.3/sqrt(m)\n";
+      << "Этап 4: HyperLogLog (базовый) и упакованные 6-битные регистры\n";
+  std::cout << "B = " << B_bits << ", m = " << m << "\n";
+  std::cout << "Теоретический масштаб относительного σ ≈ 1.04/sqrt(m) и "
+               "1.3/sqrt(m)\n";
 
-  // Memory numbers (bytes)
-  std::size_t base_bytes =
-      m * sizeof(std::uint8_t); // exact for baseline registers
-  std::size_t packed_bytes =
-      (m * 6 + 7) / 8; // theoretical minimum for 6-bit packing
-  std::cout << "Memory (registers only):\n";
-  std::cout << "  baseline: " << base_bytes << " bytes (uint8_t * m)\n";
-  std::cout << "  packed6 : ~" << packed_bytes << " bytes (6 bits * m)\n";
-  std::cout << "  saving  : ~" << (base_bytes - packed_bytes) << " bytes (~"
+  std::size_t base_bytes = m * sizeof(std::uint8_t);
+  std::size_t packed_bytes = (m * 6 + 7) / 8;
+  std::cout << "Память (только регистры):\n";
+  std::cout << "  базовый: " << base_bytes << " байт (uint8_t * m)\n";
+  std::cout << "  packed6 : ~" << packed_bytes << " байт (6 бит * m)\n";
+  std::cout << "  экономия: ~" << (base_bytes - packed_bytes) << " байт (~"
             << (100.0 * (base_bytes - packed_bytes) / base_bytes) << "%)\n\n";
 
-  // Output files with a prefix to avoid overwriting baseline results
   const std::string prefix = "stage4_";
 
   std::ofstream csv_all(prefix + "hll_results_all_streams.csv");
@@ -367,9 +346,10 @@ int main() {
     }
   }
 
-  std::cout << "Done. Generated Stage 4 CSV with prefix '" << prefix << "':\n";
+  std::cout << "Готово. Сгенерированы CSV Этапа 4 с префиксом '" << prefix
+            << "':\n";
   std::cout << "  " << prefix << "hll_stream_*.csv\n";
   std::cout << "  " << prefix << "hll_results_all_streams.csv\n";
-  std::cout << "Next: reuse your Python plotting to compare base vs packed6.\n";
+  std::cout << "Теперь сравним base и packed6.\n";
   return 0;
 }
